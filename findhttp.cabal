@@ -1,10 +1,10 @@
 cabal-version:       2.0
-name:                lshttp
-version:             0.0.0
-synopsis:            See README for more info
-description:         See README for more info
-homepage:            https://github.com/juhp/lshttp
-bug-reports:         https://github.com/juhp/lshttp/issues
+name:                findhttp
+version:             0.1
+synopsis:            List http/html files
+description:         Tool for listing files (recursively) in an http directory
+homepage:            https://github.com/juhp/findhttp
+bug-reports:         https://github.com/juhp/findhttp/issues
 license:             MIT
 license-file:        LICENSE
 author:              Jens Petersen
@@ -14,19 +14,22 @@ category:            Utility
 build-type:          Simple
 extra-doc-files:     README.md
                    , CHANGELOG.md
-tested-with:         GHC == 8.4.4, GHC == 8.6.4
+tested-with:         GHC == 8.4.4, GHC == 8.6.5
 
 source-repository head
   type:                git
-  location:            https://github.com/juhp/lshttp.git
+  location:            https://github.com/juhp/findhttp.git
 
-executable lshttp
-  hs-source-dirs:      app
+executable findhttp
   main-is:             Main.hs
+  other-modules:       Paths_findhttp
 
-  build-depends:       base-noprelude >= 4.11.1.0 && < 4.13
-                     
-                     , basic-prelude
+  build-depends:       base,
+                       basic-prelude,
+                       Glob,
+                       http-directory >= 0.1.5,
+                       simple-cmd-args,
+                       text
 
   ghc-options:         -Wall
                        -threaded
