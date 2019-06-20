@@ -6,19 +6,41 @@ import SimpleCmdArgs
 --import Data.Functor ((<&>))
 import qualified Data.Text as T
 import Network.HTTP.Directory
+import System.Directory
 import System.FilePath.Glob (compile, match)
 
 import Paths_findhttp (version)
 
 main :: IO ()
-main = do
-  mgr <- httpManager
+main =
   simpleCmdArgs (Just version) "find for http"
-    "Find files from an http \"directory\"" $
-    findHttp mgr Nothing <$> optional nameOpt <*> strArg "URL"
+  "Find files from an http \"directory\"" $
+  listFiles <$> optional nameOpt <*> strArg "URL/DIR"
   where
     nameOpt :: Parser String
     nameOpt = strOptionWith 'n' "name" "GLOB" "Limit files to glob matches"
+
+listFiles :: Maybe String -> String -> IO ()
+listFiles mname dir =
+  if isHttp dir then do
+    mgr <- httpManager
+    findHttp mgr Nothing mname dir
+    else
+    findDir mname dir
+
+findDir :: Maybe String -> String -> IO ()
+findDir mname dir = do
+  fs <- sort <$> listDirectory dir
+  mapM_ display fs
+  where
+    display :: String -> IO ()
+    display f = do
+      let file = dir </> f
+      isdir <- doesDirectoryExist file
+      if isdir then findDir mname file
+        else when (glob f) $ putStrLn $ T.pack file
+
+    glob = maybe (const True) (match . compile) mname
 
 findHttp :: Manager -> Maybe Text -> Maybe String -> String -> IO ()
 findHttp mgr mprefix mname url = do
@@ -28,13 +50,9 @@ findHttp mgr mprefix mname url = do
     display :: Text -> IO () 
     display f =
       -- optimisation: assume dirs don't contain '.'
-      if T.any (== '.') f then dispFile f
+      if T.any (== '.') f then when (glob f) $ putStrLn $ prefix f
       else findHttp mgr (mprefix <> Just f <> Just "/") mname $ url </> T.unpack f
 
     glob = maybe (const True) (match . compile) mname . T.unpack
-
-    dispFile :: Text -> IO ()
-    dispFile f =
-      when (glob f) $ putStrLn $ prefix f
 
     prefix = (fromMaybe "" mprefix <>) 

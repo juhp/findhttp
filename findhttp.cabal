@@ -26,6 +26,7 @@ executable findhttp
 
   build-depends:       base,
                        basic-prelude,
+                       directory,
                        Glob,
                        http-directory >= 0.1.5,
                        simple-cmd-args,
