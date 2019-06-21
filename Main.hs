@@ -68,8 +68,8 @@ findDir maxdepth mfiletype mname dir = do
     glob = maybe (const True) (match . compile) mname
 
 fileType :: FileType -> Maybe FileType -> Bool
-fileType ftype mreq =
-  maybe True (== ftype) mreq
+fileType ftype =
+  maybe True (== ftype)
 
 findHttp :: Manager -> Int -> Maybe FileType -> Maybe Text -> Maybe String -> String -> IO ()
 findHttp _ n _ _ _ _ | n <= 0 = return ()
@@ -107,4 +107,4 @@ httpFileType mgr url = do
   return $ case mredirect of
     Nothing -> TypeFile
     Just uri | uri == B.pack (addTrailingPathSeparator url) -> TypeDir
-             | True -> TypeSymlink
+             | otherwise -> TypeSymlink
