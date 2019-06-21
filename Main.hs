@@ -24,7 +24,7 @@ listFiles :: Maybe String -> String -> IO ()
 listFiles mname dir =
   if isHttp dir then do
     mgr <- httpManager
-    findHttp mgr Nothing mname dir
+    findHttp mgr Nothing mname $ makeDir dir
     else
     findDir mname dir
 
@@ -37,8 +37,8 @@ findDir mname dir = do
     display f = do
       let file = dir </> f
       isdir <- doesDirectoryExist file
-      if isdir then findDir mname file
-        else when (glob f) $ putStrLn $ T.pack file
+      when (glob f) $ putStrLn $ T.pack file <> (if isdir then "/" else "")
+      when isdir $ findDir mname file
 
     glob = maybe (const True) (match . compile) mname
 
@@ -48,11 +48,16 @@ findHttp mgr mprefix mname url = do
   mapM_ display fs
   where
     display :: Text -> IO () 
-    display f =
+    display f = do
+      when (glob f) $ putStrLn $ prefix f
       -- optimisation: assume dirs don't contain '.'
-      if T.any (== '.') f then when (glob f) $ putStrLn $ prefix f
-      else findHttp mgr (mprefix <> Just f <> Just "/") mname $ url </> T.unpack f
+      unless (T.any (== '.') f) $
+        findHttp mgr (mprefix <> Just f <> Just "/") mname $ url </> T.unpack f <> "/"
 
     glob = maybe (const True) (match . compile) mname . T.unpack
 
     prefix = (fromMaybe "" mprefix <>) 
+
+makeDir :: String -> String
+makeDir path =
+  if last path == '/' then path else path <> "/"
