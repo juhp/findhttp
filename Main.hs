@@ -35,7 +35,7 @@ main =
 
 listFiles :: Int -> Maybe FileType -> Maybe String -> String -> IO ()
 listFiles maxdepth mfiletype mname dir =
-  if isHttp dir then do
+  if isHttpUrl dir then do
     mgr <- httpManager
     findHttp mgr maxdepth mfiletype Nothing mname $ makeDir dir
     else
