@@ -23,8 +23,9 @@ source-repository head
 executable findhttp
   main-is:             Main.hs
   other-modules:       Paths_findhttp
+  autogen-modules:     Paths_findhttp
 
-  build-depends:       base,
+  build-depends:       base < 5,
                        basic-prelude,
                        bytestring,
                        directory >= 1.3.1.0,
