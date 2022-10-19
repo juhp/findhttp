@@ -1,9 +1,9 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-
-import BasicPrelude
 import SimpleCmdArgs
 
+import Control.Monad
 import qualified Data.ByteString.Char8 as B
+import Data.List
+import Data.Maybe
 import qualified Data.Text as T
 import Network.HTTP.Directory
 import System.Directory
@@ -19,7 +19,12 @@ main :: IO ()
 main =
   simpleCmdArgs (Just version) "find for http"
   "Find files from an http \"directory\"" $
-  listFiles <$> depthOpt <*> optional filetypeOpt <*> optional nameOpt <*> strArg "URL/DIR"
+  listFiles
+  <$> depthOpt
+  <*> optional filetypeOpt
+  <*> optional nameOpt
+  <*> switchWith 'u' "show-urls" "Prefix files with url"
+  <*> strArg "URL/DIR"
   where
     nameOpt :: Parser String
     nameOpt = strOptionWith 'n' "name" "GLOB" "Limit files to glob matches"
@@ -33,11 +38,11 @@ main =
     depthOpt :: Parser Int
     depthOpt =  optionalWith auto 'm' "maxdepth" "DEPTH" "Maximum search depth (default 10)" 10
 
-listFiles :: Int -> Maybe FileType -> Maybe String -> String -> IO ()
-listFiles maxdepth mfiletype mname dir =
+listFiles :: Int -> Maybe FileType -> Maybe String -> Bool -> String -> IO ()
+listFiles maxdepth mfiletype mname showurl dir =
   if isHttpUrl dir then do
     mgr <- httpManager
-    findHttp mgr maxdepth mfiletype Nothing mname $ makeDir dir
+    findHttp mgr maxdepth mfiletype Nothing mname showurl $ makeDir dir
     else
     findDir maxdepth mfiletype mname dir
 
@@ -53,17 +58,17 @@ findDir maxdepth mfiletype mname dir = do
       isdir <- doesDirectoryExist file
       if isdir then do
         when (fileType TypeDir mfiletype && glob f) $
-          putStrLn $ T.pack $ addTrailingPathSeparator file
+          putStrLn $ addTrailingPathSeparator file
         findDir (maxdepth-1) mfiletype mname file
         else do
         symlink <- pathIsSymbolicLink file
         if symlink then do
           tgt <- getSymbolicLinkTarget file
           when (fileType TypeSymlink mfiletype && glob f) $
-            putStrLn $ T.pack $ file <> " -> " <> tgt
+            putStrLn $ file <> " -> " <> tgt
           else
           when (fileType TypeFile mfiletype && glob f) $
-          putStrLn $ T.pack file
+          putStrLn file
 
     glob = maybe (const True) (match . compile) mname
 
@@ -71,9 +76,10 @@ fileType :: FileType -> Maybe FileType -> Bool
 fileType ftype =
   maybe True (== ftype)
 
-findHttp :: Manager -> Int -> Maybe FileType -> Maybe Text -> Maybe String -> String -> IO ()
-findHttp _ n _ _ _ _ | n <= 0 = return ()
-findHttp mgr maxdepth mfiletype mprefix mname url = do
+findHttp :: Manager -> Int -> Maybe FileType -> Maybe FilePath -> Maybe String
+         -> Bool -> String -> IO ()
+findHttp _ n _ _ _ _ _ | n <= 0 = return ()
+findHttp mgr maxdepth mfiletype mprefix mname showurl url = do
   fs <- sort <$> httpDirectory mgr url
   mapM_ (display . T.unpack) fs
   where
@@ -86,17 +92,18 @@ findHttp mgr maxdepth mfiletype mprefix mname url = do
       if filetype == TypeDir then do
         let dirname = dropTrailingPathSeparator f
         when (fileType TypeDir mfiletype && glob dirname) $
-          putStrLn $ prefix f
+          putStrLn $ maybeurl prefix ++ f
         let dir = addTrailingPathSeparator f
-        findHttp mgr (maxdepth-1) mfiletype (mprefix <> Just (T.pack dir)) mname $ url </> dir
+        findHttp mgr (maxdepth-1) mfiletype (mprefix <> Just dir) mname showurl $ url </> dir
         else
         when (fileType TypeFile mfiletype && glob f) $
-        putStrLn $ prefix f
+        putStrLn $ maybeurl prefix ++ f
 
     glob = maybe (const True) (match . compile) mname
 
-    prefix = (fromMaybe "" mprefix <>) . T.pack
+    prefix = fromMaybe "" mprefix
 
+    maybeurl = if showurl then (url +/+) else id
 makeDir :: String -> String
 makeDir path =
   if last path == '/' then path else path <> "/"

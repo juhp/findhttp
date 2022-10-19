@@ -1,0 +1,3 @@
+[versions]
+# lts-11 directory too old
+oldest = lts-12
